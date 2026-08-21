@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import prisma from "../lib/prisma";
-import { AuthenticatedRequest, authenticateToken, requireAdmin } from "../middleware/auth";
-import { UserStatus, KycStatus, Role } from "@prisma/client";
-import { PasswordService } from "../lib/password";
+import prisma from "@/lib/prisma";
+import { AuthenticatedRequest } from "@/middleware/auth";
+import { UserStatus, KycStatus } from "@prisma/client";
+import { PasswordService } from "@/lib/password";
 
 interface GetUsersQuery {
   search?: string;
@@ -14,11 +14,9 @@ interface GetUsersQuery {
   sortOrder?: "asc" | "desc";
 }
 
-// 1. Get all users (admin only)
-export const getAllUsers = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+export class AdminController {
+  // Get all users (admin only)
+  static async getAllUsers(req: Request, res: Response): Promise<void> {
     try {
       const {
         search,
@@ -122,23 +120,20 @@ export const getAllUsers = [
         code: "USER_FETCH_ERROR",
       });
     }
-  },
-];
+  }
 
-// 2. Get single user by ID (admin only)
-export const getUserById = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Get single user by ID (admin only)
+  static async getUserById(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
 
       if (!userId || typeof userId !== "string") {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: "Invalid user ID format",
           code: "INVALID_USER_ID",
         });
+        return;
       }
 
       const userWithDetails = await prisma.user.findUnique({
@@ -236,11 +231,12 @@ export const getUserById = [
       });
 
       if (!userWithDetails) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: "User not found",
           code: "USER_NOT_FOUND",
         });
+        return;
       }
 
       const totalInvestmentAmount = userWithDetails.investments.reduce(
@@ -303,30 +299,28 @@ export const getUserById = [
         code: "USER_FETCH_ERROR",
       });
     }
-  },
-];
+  }
 
-// 3. Update user profile (admin only)
-export const updateUserProfile = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Update user profile (admin only)
+  static async updateUserProfile(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
       const updateData = req.body;
 
       if (!userId) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "User ID is required",
           code: "MISSING_USER_ID",
         });
+        return;
       }
 
       if (!updateData || Object.keys(updateData).length === 0) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Update data is required",
           code: "EMPTY_UPDATE_DATA",
         });
+        return;
       }
 
       const allowedFields = [
@@ -352,11 +346,12 @@ export const updateUserProfile = [
       });
 
       if (Object.keys(filteredData).length === 0) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "No valid fields to update",
           code: "NO_VALID_FIELDS",
         });
+        return;
       }
 
       const existingUser = await prisma.user.findUnique({
@@ -364,10 +359,11 @@ export const updateUserProfile = [
       });
 
       if (!existingUser || existingUser.deletedAt) {
-        return res.status(404).json({
+        res.status(404).json({
           error: "User not found",
           code: "USER_NOT_FOUND",
         });
+        return;
       }
 
       if (filteredData.email && filteredData.email !== existingUser.email) {
@@ -379,10 +375,11 @@ export const updateUserProfile = [
         });
 
         if (emailExists) {
-          return res.status(409).json({
+          res.status(409).json({
             error: "Email already exists",
             code: "EMAIL_CONFLICT",
           });
+          return;
         }
         filteredData.email = filteredData.email.toLowerCase();
       }
@@ -413,25 +410,23 @@ export const updateUserProfile = [
         message: "Failed to update user profile",
       });
     }
-  },
-];
+  }
 
-// 4. Update user investments (admin only)
-export const updateUserInvestments = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Update user investments (admin only)
+  static async updateUserInvestments(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
       const { investments } = req.body;
 
       if (!Array.isArray(investments)) {
-        return res.status(400).json({ error: "Investments array is required" });
+        res.status(400).json({ error: "Investments array is required" });
+        return;
       }
 
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        res.status(404).json({ error: "User not found" });
+        return;
       }
 
       const updatedInvestments = [];
@@ -477,20 +472,17 @@ export const updateUserInvestments = [
       console.error("Failed to update user investments:", error);
       res.status(500).json({ error: "Failed to update user investments" });
     }
-  },
-];
+  }
 
-// 5. Update user transactions (admin only)
-export const updateUserTransactions = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Update user transactions (admin only)
+  static async updateUserTransactions(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
       const { transactions } = req.body;
 
       if (!Array.isArray(transactions)) {
-        return res.status(400).json({ error: "Transactions array is required" });
+        res.status(400).json({ error: "Transactions array is required" });
+        return;
       }
 
       const updatedTransactions = [];
@@ -531,20 +523,17 @@ export const updateUserTransactions = [
       console.error("Failed to update user transactions:", error);
       res.status(500).json({ error: "Failed to update user transactions" });
     }
-  },
-];
+  }
 
-// 6. Update user packages (admin only)
-export const updateUserPackages = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Update user packages (admin only)
+  static async updateUserPackages(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
       const { packages } = req.body;
 
       if (!Array.isArray(packages)) {
-        return res.status(400).json({ error: "Packages array is required" });
+        res.status(400).json({ error: "Packages array is required" });
+        return;
       }
 
       const updatedUserPackages = [];
@@ -578,20 +567,17 @@ export const updateUserPackages = [
       console.error("Failed to update user packages:", error);
       res.status(500).json({ error: "Failed to update user packages" });
     }
-  },
-];
+  }
 
-// 7. Update user withdrawals (admin only)
-export const updateUserWithdrawals = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Update user withdrawals (admin only)
+  static async updateUserWithdrawals(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
       const { withdrawals } = req.body;
 
       if (!Array.isArray(withdrawals)) {
-        return res.status(400).json({ error: "Withdrawals array is required" });
+        res.status(400).json({ error: "Withdrawals array is required" });
+        return;
       }
 
       const updatedWithdrawals = [];
@@ -619,21 +605,18 @@ export const updateUserWithdrawals = [
       console.error("Failed to update user withdrawals:", error);
       res.status(500).json({ error: "Failed to update user withdrawals" });
     }
-  },
-];
+  }
 
-// 8. Create new user (admin only)
-export const createUser = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Create new user (admin only)
+  static async createUser(req: Request, res: Response): Promise<void> {
     try {
       const userData = req.body;
 
       if (!userData.email || !userData.password) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Email and password are required",
         });
+        return;
       }
 
       const existingUser = await prisma.user.findUnique({
@@ -641,7 +624,8 @@ export const createUser = [
       });
 
       if (existingUser) {
-        return res.status(400).json({ error: "Email already exists" });
+        res.status(400).json({ error: "Email already exists" });
+        return;
       }
 
       const hashedPassword = await PasswordService.hashPassword(userData.password);
@@ -676,20 +660,17 @@ export const createUser = [
       console.error("Failed to create user:", error);
       res.status(500).json({ error: "Failed to create user" });
     }
-  },
-];
+  }
 
-// 9. Delete user (admin soft delete)
-export const deleteUser = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Delete user (admin soft delete)
+  static async deleteUser(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
 
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        res.status(404).json({ error: "User not found" });
+        return;
       }
 
       await prisma.user.update({
@@ -705,14 +686,10 @@ export const deleteUser = [
       console.error("Failed to delete user:", error);
       res.status(500).json({ error: "Failed to delete user" });
     }
-  },
-];
+  }
 
-// 10. Get admin dashboard stats
-export const getAdminStats = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Get admin dashboard stats
+  static async getAdminStats(req: Request, res: Response): Promise<void> {
     try {
       const [
         totalUsers,
@@ -771,14 +748,10 @@ export const getAdminStats = [
       console.error("Failed to fetch admin stats:", error);
       res.status(500).json({ error: "Failed to fetch admin stats" });
     }
-  },
-];
+  }
 
-// 11. Impersonate user (admin only)
-export const impersonateUser = [
-  authenticateToken,
-  requireAdmin,
-  async (req: Request, res: Response) => {
+  // Impersonate user (admin only)
+  static async impersonateUser(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
 
@@ -791,7 +764,8 @@ export const impersonateUser = [
       });
 
       if (!user || user.deletedAt) {
-        return res.status(404).json({ error: "User not found" });
+        res.status(404).json({ error: "User not found" });
+        return;
       }
 
       res.json({
@@ -825,5 +799,7 @@ export const impersonateUser = [
       console.error("Failed to impersonate user:", error);
       res.status(500).json({ error: "Failed to impersonate user" });
     }
-  },
-];
+  }
+}
+
+export default AdminController;

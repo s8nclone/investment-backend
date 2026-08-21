@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { DashboardController } from "../controllers/dashboard";
-import { authenticateToken } from "../middleware/auth";
+import { DashboardController } from "@/controllers/dashboard";
+import { authenticateToken } from "@/middleware/auth";
 import {
   canReadPortfolio,
   canCreatePortfolio,
@@ -8,7 +8,7 @@ import {
   canCreateInvestment,
   canReadTransaction,
   canCreateWithdrawal,
-} from "../middleware/authorization";
+} from "@/middleware/authorization";
 
 const router = Router();
 

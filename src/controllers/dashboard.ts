@@ -1,9 +1,8 @@
 import { Response } from "express";
 import { z } from "zod";
-import prisma from "../lib/prisma";
-import { AuthenticatedRequest } from "../middleware/auth";
+import prisma from "@/lib/prisma";
+import { AuthenticatedRequest } from "@/middleware/auth";
 
-// Validation schemas
 const createPortfolioSchema = z.object({
   name: z.string().min(1, "Portfolio name is required"),
   description: z.string().optional(),
@@ -27,7 +26,6 @@ const createWithdrawalSchema = z.object({
 });
 
 export class DashboardController {
-  // Get user dashboard overview
   static async getDashboardOverview(
     req: AuthenticatedRequest,
     res: Response,
@@ -44,7 +42,6 @@ export class DashboardController {
 
       const userId = req.user.id;
 
-      // Get user profile with investment summary
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -69,7 +66,6 @@ export class DashboardController {
         return;
       }
 
-      // Get portfolio summary
       const portfolios = await prisma.portfolio.findMany({
         where: { userId },
         select: {
@@ -86,7 +82,6 @@ export class DashboardController {
         },
       });
 
-      // Get recent transactions
       const recentTransactions = await prisma.transaction.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
@@ -102,7 +97,6 @@ export class DashboardController {
         },
       });
 
-      // Get active investments
       const activeInvestments = await prisma.investment.findMany({
         where: {
           userId,
@@ -121,7 +115,6 @@ export class DashboardController {
         },
       });
 
-      // Get pending withdrawals
       const pendingWithdrawals = await prisma.withdrawal.findMany({
         where: {
           userId,
@@ -135,17 +128,13 @@ export class DashboardController {
         },
       });
 
-      // Calculate performance metrics
       const totalInvestment = Number(user.totalInvestment);
       const currentBalance = Number(user.currentBalance);
       const totalReturns = Number(user.totalReturns);
       const performancePercent =
         totalInvestment > 0 ? (totalReturns / totalInvestment) * 100 : 0;
 
-      // Get monthly performance data (last 12 months)
       const monthlyPerformance = await getMonthlyPerformance(userId);
-
-      // Get investment distribution by risk level
       const riskDistribution = await getRiskDistribution(userId);
 
       res.json({
@@ -206,7 +195,6 @@ export class DashboardController {
     }
   }
 
-  // Get user portfolios
   static async getPortfolios(
     req: AuthenticatedRequest,
     res: Response,
@@ -273,7 +261,6 @@ export class DashboardController {
     }
   }
 
-  // Create new portfolio
   static async createPortfolio(
     req: AuthenticatedRequest,
     res: Response,
@@ -290,7 +277,6 @@ export class DashboardController {
 
       const validatedData = createPortfolioSchema.parse(req.body);
 
-      // Check if this is the first portfolio (make it default)
       const existingPortfolios = await prisma.portfolio.count({
         where: { userId: req.user.id },
       });
@@ -332,7 +318,6 @@ export class DashboardController {
     }
   }
 
-  // Get user investments
   static async getInvestments(
     req: AuthenticatedRequest,
     res: Response,
@@ -401,7 +386,6 @@ export class DashboardController {
     }
   }
 
-  // Create new investment
   static async createInvestment(
     req: AuthenticatedRequest,
     res: Response,
@@ -418,7 +402,6 @@ export class DashboardController {
 
       const validatedData = createInvestmentSchema.parse(req.body);
 
-      // Check user balance
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
         select: { currentBalance: true },
@@ -433,14 +416,12 @@ export class DashboardController {
         return;
       }
 
-      // Calculate end date
       const startDate = new Date();
       const endDate = new Date(
         startDate.getTime() + validatedData.duration * 24 * 60 * 60 * 1000,
       );
 
       const investment = await prisma.$transaction(async (tx) => {
-        // Create investment
         const newInvestment = await tx.investment.create({
           data: {
             userId: req.user!.id,
@@ -456,7 +437,6 @@ export class DashboardController {
           },
         });
 
-        // Update user balance
         await tx.user.update({
           where: { id: req.user!.id },
           data: {
@@ -469,7 +449,6 @@ export class DashboardController {
           },
         });
 
-        // Create transaction record
         await tx.transaction.create({
           data: {
             userId: req.user!.id,
@@ -512,7 +491,6 @@ export class DashboardController {
     }
   }
 
-  // Get user transactions
   static async getTransactions(
     req: AuthenticatedRequest,
     res: Response,
@@ -572,7 +550,6 @@ export class DashboardController {
     }
   }
 
-  // Create withdrawal request
   static async createWithdrawal(
     req: AuthenticatedRequest,
     res: Response,
@@ -589,7 +566,6 @@ export class DashboardController {
 
       const validatedData = createWithdrawalSchema.parse(req.body);
 
-      // Check user balance
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
         select: { currentBalance: true },
@@ -604,7 +580,6 @@ export class DashboardController {
         return;
       }
 
-      // Calculate fee (example: 2% fee)
       const feePercent = 0.02;
       const fee = validatedData.amount * feePercent;
       const netAmount = validatedData.amount - fee;
@@ -652,23 +627,20 @@ export class DashboardController {
   }
 }
 
-// Helper functions
 async function getMonthlyPerformance(userId: string) {
   const endDate = new Date();
   const startDate = new Date();
   startDate.setMonth(endDate.getMonth() - 12);
 
-  // This is a simplified version - in production, you'd calculate actual monthly returns
   const monthlyData = [];
   for (let i = 11; i >= 0; i--) {
     const date = new Date();
     date.setMonth(date.getMonth() - i);
 
-    // Simulate performance data - replace with actual calculation
-    const performance = Math.random() * 20 - 5; // Random between -5% and 15%
+    const performance = Math.random() * 20 - 5;
 
     monthlyData.push({
-      month: date.toISOString().substring(0, 7), // YYYY-MM format
+      month: date.toISOString().substring(0, 7),
       performance: Number(performance.toFixed(2)),
     });
   }

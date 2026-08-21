@@ -1,19 +1,17 @@
 import { Response, NextFunction } from "express";
 import { Role } from "@prisma/client";
-import { AuthenticatedRequest } from "./auth";
-import prisma from "../lib/prisma";
+import { AuthenticatedRequest } from "@/middleware/auth";
+import prisma from "@/lib/prisma";
 
 export interface Permission {
   resource: string;
   action: string;
   conditions?: Record<string, any>;
-};
+}
 
 export type RolePermissions = {
   [K in Role]: Permission[];
 };
-
-// Define base user permissions
 
 const USER_PERMISSIONS: Permission[] = [
   { resource: "profile", action: "read" },
@@ -30,10 +28,8 @@ const USER_PERMISSIONS: Permission[] = [
   { resource: "notification", action: "update" },
 ];
 
-// Define admin permissions
 const ADMIN_PERMISSIONS: Permission[] = [
   ...USER_PERMISSIONS,
-  // Additional admin permissions
   { resource: "user", action: "create" },
   { resource: "user", action: "read" },
   { resource: "user", action: "update" },
@@ -55,10 +51,10 @@ const ADMIN_PERMISSIONS: Permission[] = [
 
 export const ROLE_PERMISSIONS: RolePermissions = {
   USER: USER_PERMISSIONS,
-  ADMIN: ADMIN_PERMISSIONS
-}
+  ADMIN: ADMIN_PERMISSIONS,
+  SUPER_ADMIN: ADMIN_PERMISSIONS,
+};
 
-// Resource ownership checks
 export const OWNERSHIP_CHECKS: Record<
   string,
   (userId: string, resourceId: string) => Promise<boolean>
@@ -132,33 +128,18 @@ export class AuthorizationService {
     resourceId?: string,
     targetUserId?: string,
   ): Promise<boolean> {
-    // Check basic role permission
     if (!this.hasPermission(userRole, resource, action)) {
       return false;
     }
 
-    // For admins, allow access to everything
-    if (userRole === "ADMIN") {
+    if (userRole === "ADMIN" || userRole === "SUPER_ADMIN") {
       return true;
     }
 
-    // // For admins accessing user resources
-    // if (userRole === "ADMIN" && resource === "user" && targetUserId) {
-    //   // Admins can't modify other admins or super admins
-    //   const targetUser = await prisma.user.findUnique({
-    //     where: { id: targetUserId },
-    //     select: { role: true },
-    //   });
-
-    //   return true;
-    // }
-
-    // Check ownership for user resources
     if (resource !== "user" && resourceId) {
       return await this.checkOwnership(userId, resource, resourceId);
     }
 
-    // For profile access, users can only access their own
     if (resource === "profile" || resource === "user") {
       return userId === targetUserId;
     }
@@ -167,7 +148,6 @@ export class AuthorizationService {
   }
 }
 
-// Middleware factory for resource-based authorization
 export const requirePermission = (resource: string, action: string) => {
   return async (
     req: AuthenticatedRequest,
@@ -218,7 +198,6 @@ export const requirePermission = (resource: string, action: string) => {
   };
 };
 
-// Specific permission middlewares
 export const canReadUser = requirePermission("user", "read");
 export const canUpdateUser = requirePermission("user", "update");
 export const canDeleteUser = requirePermission("user", "delete");
@@ -247,7 +226,6 @@ export const canReadAuditLogs = requirePermission("audit-log", "read");
 export const canManagePackages = requirePermission("package", "create");
 export const canDeletePackages = requirePermission("package", "delete");
 
-// Middleware to check if user can impersonate
 export const canImpersonate = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -263,7 +241,7 @@ export const canImpersonate = async (
       return;
     }
 
-    if (req.user.role !== "ADMIN") {
+    if (req.user.role !== "ADMIN" && req.user.role !== "SUPER_ADMIN") {
       res.status(403).json({
         success: false,
         message: "Only admins can impersonate users",
@@ -282,7 +260,6 @@ export const canImpersonate = async (
       return;
     }
 
-    // Check if target user exists and is not a super admin
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
       select: { role: true, status: true },
@@ -297,7 +274,7 @@ export const canImpersonate = async (
       return;
     }
 
-    if (targetUser.role === "ADMIN") {
+    if (targetUser.role === "ADMIN" || targetUser.role === "SUPER_ADMIN") {
       res.status(403).json({
         success: false,
         message: "Cannot impersonate other admins",
@@ -326,7 +303,6 @@ export const canImpersonate = async (
   }
 };
 
-// Middleware to validate resource ownership in params
 export const validateOwnership = (resourceType: string) => {
   return async (
     req: AuthenticatedRequest,
@@ -343,8 +319,7 @@ export const validateOwnership = (resourceType: string) => {
         return;
       }
 
-      // Admins bypass ownership checks
-      if (req.user.role === "ADMIN") {
+      if (req.user.role === "ADMIN" || req.user.role === "SUPER_ADMIN") {
         next();
         return;
       }

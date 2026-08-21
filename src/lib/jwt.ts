@@ -1,7 +1,8 @@
-import jwt, { SignOptions } from "jsonwebtoken";
-import { JWTPayload, RefreshTokenPayload } from "../types/auth";
+import jwt from "jsonwebtoken";
+import { JWTPayload, RefreshTokenPayload } from "@/types/auth";
 
-const JWT_SECRET = process.env.JWT_SECRET || "default_super_secret_jwt_key_change_in_production_12345";
+const JWT_SECRET =
+  process.env.JWT_SECRET || "default_super_secret_jwt_key_change_in_production_12345";
 const JWT_REFRESH_SECRET =
   process.env.JWT_REFRESH_SECRET || "default_super_secret_refresh_key_change_in_production_12345";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
@@ -74,7 +75,6 @@ export class JWTService {
   }
 
   static getTokenExpirationTime(): number {
-    // Convert JWT_EXPIRES_IN to milliseconds
     const expiresIn = JWT_EXPIRES_IN;
 
     if (typeof expiresIn === "string") {
@@ -91,11 +91,11 @@ export class JWTService {
         case "d":
           return value * 24 * 60 * 60 * 1000;
         default:
-          return 15 * 60 * 1000; // Default 15 minutes
+          return 15 * 60 * 1000;
       }
     }
 
-    return 15 * 60 * 1000; // Default 15 minutes
+    return 15 * 60 * 1000;
   }
 
   static isTokenExpired(token: string): boolean {

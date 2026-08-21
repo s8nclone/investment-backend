@@ -1,12 +1,11 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import prisma from "../lib/prisma";
-import { PasswordService } from "../lib/password";
-import { JWTService } from "../lib/jwt";
-import { AuthError, ValidationError, UserProfile } from "../types/auth";
-import { AuthenticatedRequest } from "../middleware/auth";
+import prisma from "@/lib/prisma";
+import { PasswordService } from "@/lib/password";
+import { JWTService } from "@/lib/jwt";
+import { AuthError, ValidationError, UserProfile } from "@/types/auth";
+import { AuthenticatedRequest } from "@/middleware/auth";
 
-// Validation schemas
 const registerSchema = z
   .object({
     email: z.string().email("Invalid email format"),
@@ -35,26 +34,11 @@ const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 });
 
-const changePasswordSchema = z
-  .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z
-      .string()
-      .min(8, "New password must be at least 8 characters"),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
-
 export class AuthController {
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      // Validate request body
       const validatedData = registerSchema.parse(req.body);
 
-      // Validate password strength
       const passwordValidation = PasswordService.validatePasswordStrength(
         validatedData.password,
       );
@@ -67,7 +51,6 @@ export class AuthController {
         return;
       }
 
-      // Check if user already exists
       const existingUser = await prisma.user.findFirst({
         where: {
           OR: [
@@ -98,12 +81,10 @@ export class AuthController {
         }
       }
 
-      // Hash password
       const hashedPassword = await PasswordService.hashPassword(
         validatedData.password,
       );
 
-      // Create user
       const user = await prisma.user.create({
         data: {
           email: validatedData.email.toLowerCase(),
@@ -117,20 +98,18 @@ export class AuthController {
         },
       });
 
-      // Create session
-      const sessionExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const sessionExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const session = await prisma.session.create({
         data: {
           userId: user.id,
-          token: "", // Will be updated with JWT
-          refreshToken: "", // Will be updated with refresh token
+          token: "",
+          refreshToken: "",
           expiresAt: sessionExpiry,
           ipAddress: req.ip,
           userAgent: req.get("User-Agent"),
         },
       });
 
-      // Generate tokens
       const accessToken = JWTService.generateAccessToken({
         userId: user.id,
         email: user.email,
@@ -144,7 +123,6 @@ export class AuthController {
         tokenVersion: 1,
       });
 
-      // Update session with tokens
       await prisma.session.update({
         where: { id: session.id },
         data: {
@@ -153,7 +131,6 @@ export class AuthController {
         },
       });
 
-      // Create audit log
       await prisma.auditLog.create({
         data: {
           userId: user.id,
@@ -219,10 +196,8 @@ export class AuthController {
 
   static async login(req: Request, res: Response): Promise<void> {
     try {
-      // Validate request body
       const validatedData = loginSchema.parse(req.body);
 
-      // Find user by email
       const user = await prisma.user.findUnique({
         where: { email: validatedData.email.toLowerCase() },
       });
@@ -236,7 +211,6 @@ export class AuthController {
         return;
       }
 
-      // Check if user is active
       if (user.status !== "ACTIVE") {
         res.status(403).json({
           success: false,
@@ -246,7 +220,6 @@ export class AuthController {
         return;
       }
 
-      // Verify password
       const isPasswordValid = await PasswordService.comparePassword(
         validatedData.password,
         user.password,
@@ -261,7 +234,6 @@ export class AuthController {
         return;
       }
 
-      // Deactivate existing sessions if not "remember me"
       if (!validatedData.rememberMe) {
         await prisma.session.updateMany({
           where: { userId: user.id, isActive: true },
@@ -269,26 +241,24 @@ export class AuthController {
         });
       }
 
-      // Create new session
       const sessionExpiry = new Date(
         Date.now() +
           (validatedData.rememberMe
             ? 30 * 24 * 60 * 60 * 1000
             : 7 * 24 * 60 * 60 * 1000),
-      ); // 30 days if remember me, 7 days otherwise
+      );
 
       const session = await prisma.session.create({
         data: {
           userId: user.id,
-          token: "", // Will be updated with JWT
-          refreshToken: "", // Will be updated with refresh token
+          token: "",
+          refreshToken: "",
           expiresAt: sessionExpiry,
           ipAddress: req.ip,
           userAgent: req.get("User-Agent"),
         },
       });
 
-      // Generate tokens
       const accessToken = JWTService.generateAccessToken({
         userId: user.id,
         email: user.email,
@@ -302,7 +272,6 @@ export class AuthController {
         tokenVersion: 1,
       });
 
-      // Update session with tokens
       await prisma.session.update({
         where: { id: session.id },
         data: {
@@ -311,13 +280,11 @@ export class AuthController {
         },
       });
 
-      // Update last login
       await prisma.user.update({
         where: { id: user.id },
         data: { lastLoginAt: new Date() },
       });
 
-      // Create audit log
       await prisma.auditLog.create({
         data: {
           userId: user.id,
@@ -385,10 +352,8 @@ export class AuthController {
     try {
       const validatedData = refreshTokenSchema.parse(req.body);
 
-      // Verify refresh token
       const decoded = JWTService.verifyRefreshToken(validatedData.refreshToken);
 
-      // Find active session
       const session = await prisma.session.findUnique({
         where: {
           id: decoded.sessionId,
@@ -419,7 +384,6 @@ export class AuthController {
         return;
       }
 
-      // Generate new access token
       const accessToken = JWTService.generateAccessToken({
         userId: session.user.id,
         email: session.user.email,
@@ -427,7 +391,6 @@ export class AuthController {
         sessionId: session.id,
       });
 
-      // Update session with new token
       await prisma.session.update({
         where: { id: session.id },
         data: { token: accessToken },
@@ -472,13 +435,11 @@ export class AuthController {
         return;
       }
 
-      // Deactivate current session
       await prisma.session.update({
         where: { id: req.user.sessionId },
         data: { isActive: false },
       });
 
-      // Create audit log
       await prisma.auditLog.create({
         data: {
           userId: req.user.id,
@@ -518,13 +479,11 @@ export class AuthController {
         return;
       }
 
-      // Deactivate all user sessions
       await prisma.session.updateMany({
         where: { userId: req.user.id, isActive: true },
         data: { isActive: false },
       });
 
-      // Create audit log
       await prisma.auditLog.create({
         data: {
           userId: req.user.id,
@@ -561,7 +520,6 @@ export class AuthController {
         return;
       }
 
-      // Get full user data
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
         select: {

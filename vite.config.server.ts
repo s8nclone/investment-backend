@@ -5,9 +5,9 @@ import path from "path";
 export default defineConfig({
   build: {
     lib: {
-      entry: path.resolve(__dirname, "node-build.ts"),
+      entry: path.resolve(__dirname, "src/index.ts"),
       name: "server",
-      fileName: "production",
+      fileName: "server",
       formats: ["es"],
     },
     outDir: "dist",
@@ -38,18 +38,20 @@ export default defineConfig({
         "dotenv",
         "zod",
         "serverless-http",
+        "swagger-ui-express",
+        "swagger-jsdoc",
       ],
       output: {
         format: "es",
         entryFileNames: "[name].mjs",
       },
     },
-    minify: false, // Keep readable for debugging
+    minify: false,
     sourcemap: true,
   },
   resolve: {
     alias: {
-      "@shared": path.resolve(__dirname, "../shared"),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   define: {

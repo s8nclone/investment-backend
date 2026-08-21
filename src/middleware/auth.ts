@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { JWTService } from "../lib/jwt";
-import { AuthError, AuthenticatedRequest } from "../types/auth";
-import prisma from "../lib/prisma";
+import { JWTService } from "@/lib/jwt";
+import { AuthError, AuthenticatedRequest } from "@/types/auth";
+import prisma from "@/lib/prisma";
 import { Role } from "@prisma/client";
 
-export { AuthenticatedRequest };
+export type { AuthenticatedRequest };
 
 export const authenticateToken = async (
   req: AuthenticatedRequest,
@@ -13,7 +13,7 @@ export const authenticateToken = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(" ")[1];
 
     if (!token) {
       res.status(401).json({
@@ -24,10 +24,8 @@ export const authenticateToken = async (
       return;
     }
 
-    // Verify the token
     const decoded = JWTService.verifyAccessToken(token);
 
-    // Check if session exists and is active
     const session = await prisma.session.findUnique({
       where: {
         id: decoded.sessionId,
@@ -58,7 +56,6 @@ export const authenticateToken = async (
       return;
     }
 
-    // Check if user account is active
     if (session.user.status !== "ACTIVE") {
       res.status(403).json({
         success: false,
@@ -68,7 +65,6 @@ export const authenticateToken = async (
       return;
     }
 
-    // Attach user info to request
     req.user = {
       id: session.user.id,
       email: session.user.email,
@@ -153,7 +149,6 @@ export const optionalAuth = async (
       };
     }
   } catch (error) {
-    // Silently ignore auth errors for optional auth
     console.log(
       "Optional auth failed:",
       error instanceof Error ? error.message : "Unknown error",
@@ -196,9 +191,8 @@ export const requireRole = (roles: Role | Role[]) => {
 export const requireAdmin = requireRole(["ADMIN", "SUPER_ADMIN"]);
 export const requireSuperAdmin = requireRole("SUPER_ADMIN");
 
-// Rate limiting middleware
 export const createRateLimiter = (
-  windowMs: number = 15 * 60 * 1000, // 15 minutes
+  windowMs: number = 15 * 60 * 1000,
   maxRequests: number = 100,
 ) => {
   const requests = new Map<string, { count: number; resetTime: number }>();
@@ -242,8 +236,7 @@ export const createRateLimiter = (
   };
 };
 
-// Auth rate limiter for login/register endpoints
 export const authRateLimit = createRateLimiter(
-  parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"), // 15 minutes
-  parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "5"), // 5 requests per window
+  parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"),
+  parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "5"),
 );

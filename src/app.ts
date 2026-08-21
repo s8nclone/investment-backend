@@ -2,24 +2,11 @@ import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
-import { swaggerSpec } from "./lib/swagger";
-import { handleDemo } from "./routes/demo";
-import {
-  getAllUsers,
-  getUserById,
-  updateUserProfile,
-  updateUserInvestments,
-  updateUserTransactions,
-  updateUserPackages,
-  updateUserWithdrawals,
-  createUser,
-  deleteUser,
-  getAdminStats,
-  impersonateUser,
-} from "./routes/admin";
-import authRoutes from "./routes/auth";
-import dashboardRoutes from "./routes/dashboard";
-import { checkDatabaseConnection } from "./lib/prisma";
+import { swaggerSpec } from "@/lib/swagger";
+import authRoutes from "@/routes/auth";
+import dashboardRoutes from "@/routes/dashboard";
+import adminRoutes from "@/routes/admin";
+import { checkDatabaseConnection } from "@/lib/prisma";
 
 export function createServer() {
   const app = express();
@@ -58,7 +45,9 @@ export function createServer() {
     res.json({ message: ping });
   });
 
-  app.get("/api/demo", handleDemo);
+  app.get("/api/demo", (_req, res) => {
+    res.json({ message: "Demo endpoint" });
+  });
 
   // Authentication routes
   app.use("/api/auth", authRoutes);
@@ -66,18 +55,8 @@ export function createServer() {
   // Dashboard routes
   app.use("/api/dashboard", dashboardRoutes);
 
-  // Admin API routes
-  app.get("/api/admin/users", ...getAllUsers);
-  app.get("/api/admin/users/:userId", ...getUserById);
-  app.put("/api/admin/users/:userId/profile", ...updateUserProfile);
-  app.put("/api/admin/users/:userId/investments", ...updateUserInvestments);
-  app.put("/api/admin/users/:userId/transactions", ...updateUserTransactions);
-  app.put("/api/admin/users/:userId/packages", ...updateUserPackages);
-  app.put("/api/admin/users/:userId/withdrawals", ...updateUserWithdrawals);
-  app.post("/api/admin/users", ...createUser);
-  app.delete("/api/admin/users/:userId", ...deleteUser);
-  app.get("/api/admin/stats", ...getAdminStats);
-  app.post("/api/admin/impersonate/:userId", ...impersonateUser);
+  // Admin routes
+  app.use("/api/admin", adminRoutes);
 
   // Global Centralized Error Handler Middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
