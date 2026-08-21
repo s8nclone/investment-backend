@@ -1,0 +1,366 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String              @id @default(cuid())
+  email             String              @unique
+  username          String?             @unique
+  firstName         String?
+  lastName          String?
+  password          String
+  phone             String?
+  avatar            String?
+  role              Role                @default(USER)
+  status            UserStatus          @default(ACTIVE)
+  kycStatus         KycStatus           @default(PENDING)
+  country           String?
+  emailVerified     Boolean             @default(false)
+  emailVerifiedAt   DateTime?
+  twoFactorEnabled  Boolean             @default(false)
+  twoFactorSecret   String?
+  
+  // Investment related fields
+  totalInvestment   Decimal             @default(0) @db.Decimal(15, 2)
+  currentBalance    Decimal             @default(0) @db.Decimal(15, 2)
+  totalReturns      Decimal             @default(0) @db.Decimal(15, 2)
+  riskTolerance     RiskLevel           @default(MODERATE)
+  
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  lastLoginAt       DateTime?
+  deletedAt         DateTime?
+  
+  // Relations
+  sessions          Session[]
+  portfolios        Portfolio[]
+  transactions      Transaction[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  investments       Investment[]
+  withdrawals       Withdrawal[]
+  userPackages      UserPackage[]
+  
+  @@map("users")
+}
+
+model Session {
+  id           String    @id @default(cuid())
+  userId       String
+  token        String    @unique
+  refreshToken String    @unique
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model Portfolio {
+  id              String            @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  totalValue      Decimal           @default(0) @db.Decimal(15, 2)
+  totalInvested   Decimal           @default(0) @db.Decimal(15, 2)
+  totalReturns    Decimal           @default(0) @db.Decimal(15, 2)
+  performance     Decimal           @default(0) @db.Decimal(5, 2) // Percentage
+  isDefault       Boolean           @default(false)
+  
+  // Timestamps
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings        Holding[]
+  
+  @@map("portfolios")
+}
+
+model Holding {
+  id          String    @id @default(cuid())
+  portfolioId String
+  symbol      String
+  name        String
+  quantity    Decimal   @db.Decimal(15, 8)
+  avgPrice    Decimal   @db.Decimal(15, 2)
+  currentPrice Decimal  @db.Decimal(15, 2)
+  totalValue  Decimal   @db.Decimal(15, 2)
+  pnl         Decimal   @db.Decimal(15, 2)
+  pnlPercent  Decimal   @db.Decimal(5, 2)
+  assetType   AssetType @default(STOCK)
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  @@map("holdings")
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  userId          String
+  investmentId    String?
+  type            TransactionType
+  symbol          String?
+  quantity        Decimal?          @db.Decimal(15, 8)
+  price           Decimal?          @db.Decimal(15, 2)
+  amount          Decimal           @db.Decimal(15, 2)
+  fee             Decimal           @default(0) @db.Decimal(15, 2)
+  status          TransactionStatus @default(PENDING)
+  description     String?
+  reference       String?           @unique
+  
+  // Timestamps
+  executedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("transactions")
+}
+
+model Investment {
+  id              String            @id @default(cuid())
+  userId          String
+  packageId       String?
+  name            String
+  description     String?
+  amount          Decimal           @db.Decimal(15, 2)
+  currentValue    Decimal           @db.Decimal(15, 2)
+  returns         Decimal           @default(0) @db.Decimal(15, 2)
+  returnPercent   Decimal           @default(0) @db.Decimal(5, 2)
+  expectedReturn  Decimal?          @db.Decimal(5, 2)
+  duration        Int               // Investment duration in days
+  startDate       DateTime
+  endDate         DateTime
+  status          InvestmentStatus  @default(ACTIVE)
+  riskLevel       RiskLevel         @default(MODERATE)
+  
+  // Timestamps
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package         Package?          @relation(fields: [packageId], references: [id])
+  
+  @@map("investments")
+}
+
+model Package {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  minInvestment   Decimal       @db.Decimal(15, 2)
+  maxInvestment   Decimal?      @db.Decimal(15, 2)
+  expectedReturn  Decimal       @db.Decimal(5, 2) // Percentage
+  duration        Int           // Duration in days
+  riskLevel       RiskLevel     @default(MODERATE)
+  isActive        Boolean       @default(true)
+  category        String?
+  
+  // Features
+  features        String[]      @default([])
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  investments     Investment[]
+  userPackages    UserPackage[]
+  
+  @@map("packages")
+}
+
+model UserPackage {
+  id              String    @id @default(cuid())
+  userId          String
+  packageId       String
+  subscribedAt    DateTime  @default(now())
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package         Package   @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, packageId])
+  @@map("user_packages")
+}
+
+model Withdrawal {
+  id              String           @id @default(cuid())
+  userId          String
+  amount          Decimal          @db.Decimal(15, 2)
+  fee             Decimal          @default(0) @db.Decimal(15, 2)
+  netAmount       Decimal          @db.Decimal(15, 2)
+  method          WithdrawalMethod @default(BANK_TRANSFER)
+  bankAccount     String?
+  cryptoAddress   String?
+  status          WithdrawalStatus @default(PENDING)
+  reference       String?          @unique
+  notes           String?
+  reason          String?
+  
+  // Processing
+  processedAt     DateTime?
+  processedBy     String?
+  
+  // Timestamps
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("withdrawals")
+}
+
+model Notification {
+  id              String              @id @default(cuid())
+  userId          String
+  title           String
+  message         String
+  type            NotificationType    @default(INFO)
+  isRead          Boolean             @default(false)
+  actionUrl       String?
+  
+  // Timestamps
+  readAt          DateTime?
+  createdAt       DateTime            @default(now())
+  
+  // Relations
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+}
+
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String?
+  action          String
+  entity          String
+  entityId        String?
+  changes         Json?
+  ipAddress       String?
+  userAgent       String?
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("audit_logs")
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  AGGRESSIVE
+}
+
+enum AssetType {
+  STOCK
+  CRYPTO
+  FOREX
+  COMMODITY
+  INDEX
+  ETF
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BUY
+  SELL
+  DIVIDEND
+  FEE
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum InvestmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  SUSPENDED
+}
+
+enum WithdrawalMethod {
+  BANK_TRANSFER
+  CRYPTO
+  PAYPAL
+  CHECK
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  INVESTMENT_UPDATE
+  TRANSACTION_ALERT
+  SECURITY_ALERT
+  SYSTEM_UPDATE
+}
