@@ -7,7 +7,7 @@
   "main": "dist/index.mjs",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "esbuild api/index.ts --bundle --platform=node --format=esm --outfile=api/index.js --external:@vercel/node",
+    "build": "vite build --config vite.config.server.ts",
     "start": "node dist/index.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
