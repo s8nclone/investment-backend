@@ -353,6 +353,36 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
+      "/api/dashboard/deposit": {
+        post: {
+          tags: ["Dashboard"],
+          summary: "Create deposit",
+          description: "Funds the user's wallet balance (currentBalance) and logs a deposit transaction.",
+          security: [{ BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["amount"],
+                  properties: {
+                    amount: { type: "number", example: 1000 },
+                    paymentMethod: { type: "string", example: "BANK_TRANSFER" },
+                    reference: { type: "string", example: "DEP_123456" },
+                    description: { type: "string", example: "Wallet deposit" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: "Deposit successful" },
+            400: { description: "Validation error" },
+            401: { description: "Unauthorized" },
+          },
+        },
+      },
 
       // ──────────────────────────────────────────
       // Admin

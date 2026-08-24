@@ -1,31 +1,15 @@
 import { Response } from "express";
-import { z } from "zod";
 import prisma from "@/lib/prisma";
+import * as z from "zod";
 import { AuthenticatedRequest } from "@/middleware/auth";
-
-const createPortfolioSchema = z.object({
-  name: z.string().min(1, "Portfolio name is required"),
-  description: z.string().optional(),
-});
-
-const createInvestmentSchema = z.object({
-  packageId: z.string().optional(),
-  name: z.string().min(1, "Investment name is required"),
-  description: z.string().optional(),
-  amount: z.number().positive("Investment amount must be positive"),
-  duration: z.number().positive("Duration must be positive"),
-  riskLevel: z.enum(["LOW", "MODERATE", "HIGH", "AGGRESSIVE"]).optional(),
-});
-
-const createWithdrawalSchema = z.object({
-  amount: z.number().positive("Withdrawal amount must be positive"),
-  method: z.enum(["BANK_TRANSFER", "CRYPTO", "PAYPAL", "CHECK"]),
-  bankAccount: z.string().optional(),
-  cryptoAddress: z.string().optional(),
-  notes: z.string().optional(),
-});
-
+import {
+  createDepositSchema,
+  createInvestmentSchema,
+  createPortfolioSchema,
+  createWithdrawalSchema
+} from "@/schemas/dashboard.schemas"
 export class DashboardController {
+  // Get dashboard overview
   static async getDashboardOverview(
     req: AuthenticatedRequest,
     res: Response,
@@ -195,6 +179,7 @@ export class DashboardController {
     }
   }
 
+  // Get user portfolio
   static async getPortfolios(
     req: AuthenticatedRequest,
     res: Response,
@@ -261,6 +246,7 @@ export class DashboardController {
     }
   }
 
+  // Create portfolio
   static async createPortfolio(
     req: AuthenticatedRequest,
     res: Response,
@@ -302,7 +288,7 @@ export class DashboardController {
         res.status(400).json({
           success: false,
           message: "Validation error",
-          errors: error.errors.map((err) => ({
+          errors: error.issues.map((err) => ({
             field: err.path.join("."),
             message: err.message,
           })),
@@ -318,6 +304,7 @@ export class DashboardController {
     }
   }
 
+  // Get user investments
   static async getInvestments(
     req: AuthenticatedRequest,
     res: Response,
@@ -386,6 +373,7 @@ export class DashboardController {
     }
   }
 
+  // Create new investment
   static async createInvestment(
     req: AuthenticatedRequest,
     res: Response,
@@ -475,7 +463,7 @@ export class DashboardController {
         res.status(400).json({
           success: false,
           message: "Validation error",
-          errors: error.errors.map((err) => ({
+          errors: error.issues.map((err) => ({
             field: err.path.join("."),
             message: err.message,
           })),
@@ -491,6 +479,7 @@ export class DashboardController {
     }
   }
 
+  // Get all transactions
   static async getTransactions(
     req: AuthenticatedRequest,
     res: Response,
@@ -550,6 +539,110 @@ export class DashboardController {
     }
   }
 
+  // Create deposit
+  static async createDeposit(
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: "Authentication required",
+          code: "AUTH_REQUIRED",
+        });
+        return;
+      }
+
+      const validatedData = createDepositSchema.parse(req.body);
+      const ref =
+        validatedData.reference ||
+        `DEP_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+      const result = await prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { id: req.user!.id },
+          data: {
+            currentBalance: {
+              increment: validatedData.amount,
+            },
+          },
+          select: {
+            id: true,
+            email: true,
+            currentBalance: true,
+            totalInvestment: true,
+            totalReturns: true,
+          },
+        });
+
+        const transaction = await tx.transaction.create({
+          data: {
+            userId: req.user!.id,
+            type: "DEPOSIT",
+            amount: validatedData.amount,
+            status: "COMPLETED",
+            description:
+              validatedData.description ||
+              `Deposit via ${validatedData.paymentMethod}`,
+            reference: ref,
+            executedAt: new Date(),
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user!.id,
+            action: "USER_DEPOSIT",
+            entity: "Transaction",
+            entityId: transaction.id,
+            ipAddress: req.ip,
+            userAgent: req.get("User-Agent"),
+          },
+        });
+
+        return { updatedUser, transaction };
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Deposit successful",
+        data: {
+          user: {
+            ...result.updatedUser,
+            currentBalance: Number(result.updatedUser.currentBalance),
+            totalInvestment: Number(result.updatedUser.totalInvestment),
+            totalReturns: Number(result.updatedUser.totalReturns),
+          },
+          transaction: {
+            ...result.transaction,
+            amount: Number(result.transaction.amount),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Deposit error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: error.issues.map((err) => ({
+            field: err.path.join("."),
+            message: err.message,
+          })),
+        });
+        return;
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Deposit processing failed",
+        code: "DEPOSIT_ERROR",
+      });
+    }
+  }
+
+  // Create withdrawal
   static async createWithdrawal(
     req: AuthenticatedRequest,
     res: Response,
@@ -610,7 +703,7 @@ export class DashboardController {
         res.status(400).json({
           success: false,
           message: "Validation error",
-          errors: error.errors.map((err) => ({
+          errors: error.issues.map((err) => ({
             field: err.path.join("."),
             message: err.message,
           })),

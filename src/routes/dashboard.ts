@@ -52,4 +52,7 @@ router.post(
   DashboardController.createWithdrawal,
 );
 
+// Deposit routes
+router.post("/deposit", DashboardController.createDeposit);
+
 export default router;

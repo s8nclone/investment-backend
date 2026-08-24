@@ -5,36 +5,10 @@ import { PasswordService } from "@/lib/password";
 import { JWTService } from "@/lib/jwt";
 import { AuthError, ValidationError, UserProfile } from "@/types/auth";
 import { AuthenticatedRequest } from "@/middleware/auth";
-
-const registerSchema = z
-  .object({
-    email: z.string().email("Invalid email format"),
-    username: z
-      .string()
-      .min(3, "Username must be at least 3 characters")
-      .optional(),
-    firstName: z.string().min(1, "First name is required").optional(),
-    lastName: z.string().min(1, "Last name is required").optional(),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string(),
-    phone: z.string().optional(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
-
-const loginSchema = z.object({
-  email: z.string().email("Invalid email format"),
-  password: z.string().min(1, "Password is required"),
-  rememberMe: z.boolean().optional(),
-});
-
-const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, "Refresh token is required"),
-});
+import { registerSchema, loginSchema, refreshTokenSchema } from "@/schemas/auth.schemas";
 
 export class AuthController {
+  // Register new user
   static async register(req: Request, res: Response): Promise<void> {
     try {
       const validatedData = registerSchema.parse(req.body);
@@ -178,7 +152,7 @@ export class AuthController {
         res.status(400).json({
           success: false,
           message: "Validation error",
-          errors: error.errors.map((err) => ({
+          errors: error.issues.map((err) => ({
             field: err.path.join("."),
             message: err.message,
           })),
@@ -194,6 +168,7 @@ export class AuthController {
     }
   }
 
+  // Sign in existing user
   static async login(req: Request, res: Response): Promise<void> {
     try {
       const validatedData = loginSchema.parse(req.body);
@@ -332,7 +307,7 @@ export class AuthController {
         res.status(400).json({
           success: false,
           message: "Validation error",
-          errors: error.errors.map((err) => ({
+          errors: error.issues.map((err) => ({
             field: err.path.join("."),
             message: err.message,
           })),
@@ -348,6 +323,7 @@ export class AuthController {
     }
   }
 
+  // Refresh token
   static async refreshToken(req: Request, res: Response): Promise<void> {
     try {
       const validatedData = refreshTokenSchema.parse(req.body);
@@ -424,6 +400,7 @@ export class AuthController {
     }
   }
 
+  // Logout single user
   static async logout(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       if (!req.user) {
@@ -465,6 +442,7 @@ export class AuthController {
     }
   }
 
+  // Logout all users
   static async logoutAll(
     req: AuthenticatedRequest,
     res: Response,
@@ -509,6 +487,7 @@ export class AuthController {
     }
   }
 
+  // Get single user profile
   static async me(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       if (!req.user) {

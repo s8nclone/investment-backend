@@ -164,9 +164,11 @@ export const requirePermission = (resource: string, action: string) => {
         return;
       }
 
+      const toStr = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v;
+
       const { role, id: userId } = req.user;
-      const resourceId = req.params.id || req.params.resourceId;
-      const targetUserId = req.params.userId || req.body.userId;
+      const resourceId = toStr(req.params.id) || toStr(req.params.resourceId);
+      const targetUserId = toStr(req.params.userId) || req.body?.userId;
 
       const hasAccess = await AuthorizationService.canAccessResource(
         role,
@@ -250,7 +252,9 @@ export const canImpersonate = async (
       return;
     }
 
-    const targetUserId = req.params.userId;
+    const toStr = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v;
+
+    const targetUserId = toStr(req.params.userId);
     if (!targetUserId) {
       res.status(400).json({
         success: false,
@@ -324,7 +328,9 @@ export const validateOwnership = (resourceType: string) => {
         return;
       }
 
-      const resourceId = req.params.id;
+      const toStr = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v;
+
+      const resourceId = toStr(req.params.id);
       if (!resourceId) {
         res.status(400).json({
           success: false,

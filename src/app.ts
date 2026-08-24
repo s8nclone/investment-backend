@@ -22,21 +22,7 @@ export function createServer() {
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // Interactive Swagger API Documentation
-  const swaggerUiOptions = {
-    customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "API Docs",
-    customCssUrl: "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css",
-    customJs: [
-      "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js",
-      "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js",
-    ],
-  };
-  
-  app.use(
-    "/api/docs",
-    swaggerUi.serveFiles(swaggerSpec, swaggerUiOptions),
-    swaggerUi.setup(swaggerSpec, swaggerUiOptions)
-  );
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
   app.get("/api/docs.json", (_req: Request, res: Response) => {
     res.setHeader("Content-Type", "application/json");
     res.send(swaggerSpec);
