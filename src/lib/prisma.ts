@@ -1,12 +1,17 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "@neondatabase/serverless";
 
 declare global {
   var __prisma: PrismaClient | undefined;
 }
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL});
+// Uses @neondatabase/serverless Pool (ESM-compatible, works on Vercel/serverless).
+// To switch to standard pg for other providers, replace with:
+//   import { Pool } from "pg";
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool as any);
 const prisma =
   globalThis.__prisma ||
   new PrismaClient({
