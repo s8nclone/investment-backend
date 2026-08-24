@@ -125,7 +125,7 @@ export class AdminController {
   // Get single user by ID (admin only)
   static async getUserById(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
 
       if (!userId || typeof userId !== "string") {
         res.status(400).json({
@@ -304,7 +304,7 @@ export class AdminController {
   // Update user profile (admin only)
   static async updateUserProfile(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const updateData = req.body;
 
       if (!userId) {
@@ -415,7 +415,7 @@ export class AdminController {
   // Update user investments (admin only)
   static async updateUserInvestments(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const { investments } = req.body;
 
       if (!Array.isArray(investments)) {
@@ -477,7 +477,7 @@ export class AdminController {
   // Update user transactions (admin only)
   static async updateUserTransactions(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const { transactions } = req.body;
 
       if (!Array.isArray(transactions)) {
@@ -528,7 +528,7 @@ export class AdminController {
   // Update user packages (admin only)
   static async updateUserPackages(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const { packages } = req.body;
 
       if (!Array.isArray(packages)) {
@@ -572,7 +572,7 @@ export class AdminController {
   // Update user withdrawals (admin only)
   static async updateUserWithdrawals(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
       const { withdrawals } = req.body;
 
       if (!Array.isArray(withdrawals)) {
@@ -665,7 +665,7 @@ export class AdminController {
   // Delete user (admin soft delete)
   static async deleteUser(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
 
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
@@ -753,15 +753,15 @@ export class AdminController {
   // Impersonate user (admin only)
   static async impersonateUser(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.params.userId as string;
 
-      const user = await prisma.user.findUnique({
+      const user = (await prisma.user.findUnique({
         where: { id: userId },
         include: {
           investments: { take: 10 },
           transactions: { take: 10 },
         },
-      });
+      })) as any;
 
       if (!user || user.deletedAt) {
         res.status(404).json({ error: "User not found" });
