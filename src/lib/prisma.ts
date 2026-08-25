@@ -1,15 +1,14 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool } from "@neondatabase/serverless";
-//   import { Pool } from "pg";
 
 declare global {
   var __prisma: PrismaClient | undefined;
 }
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool as any);
+const adapter = new PrismaNeon(pool);
 const prisma =
   globalThis.__prisma ||
   new PrismaClient({
