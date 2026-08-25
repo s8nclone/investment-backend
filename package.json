@@ -7,7 +7,7 @@
   "main": "dist/index.mjs",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.mjs --external:@prisma/client --external:express --external:cors --external:bcryptjs --external:jsonwebtoken --external:swagger-ui-express --external:swagger-jsdoc --external:dotenv",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.mjs --external:@prisma/client --external:@prisma/adapter-pg --external:pg --external:express --external:cors --external:bcryptjs --external:jsonwebtoken --external:swagger-ui-express --external:swagger-jsdoc --external:dotenv",
     "start": "node dist/index.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
